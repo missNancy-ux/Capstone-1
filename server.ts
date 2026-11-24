@@ -1051,7 +1051,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`ZOU Attachment Finder server listening on port ${PORT}`);
+    console.log(`Capstone 1 Attachment Finder server listening on port ${PORT}`);
   });
 }
 
