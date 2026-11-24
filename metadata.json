@@ -1,0 +1,6 @@
+{
+  "name": "ZOU Attachment Finder",
+  "description": "Web-based Student Industrial Attachment Finder platform connecting Zimbabwe Open University Software Engineering students with verified partner companies.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
