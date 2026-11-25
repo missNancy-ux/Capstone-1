@@ -5,7 +5,7 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import express, { type NextFunction, type Request, type Response } from 'express';
 
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const SESSION_SECRET =
   process.env.SESSION_SECRET && process.env.SESSION_SECRET.trim().length >= 16
@@ -499,6 +499,8 @@ async function startServer() {
     res.json({ hasAdminAccount: adminCount.cnt > 0, requiresEnvPasscode });
   });
 
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   app.post('/api/auth/setup-admin', (req: Request, res: Response) => {
     const body = req.body as Record<string, unknown>;
     const displayName = String(body.displayName ?? '').trim().slice(0, 100);
@@ -506,8 +508,16 @@ async function startServer() {
     const password = String(body.password ?? '');
     const passcode = String(body.passcode ?? '');
 
-    if (displayName.length < 2 || !email.includes('@') || password.length < 6) {
-      res.status(400).json({ error: 'Name, valid email, and password (min 6 chars) are required.' });
+    if (displayName.length < 2) {
+      res.status(400).json({ error: 'Admin name must be at least 2 characters.' });
+      return;
+    }
+    if (!EMAIL_REGEX.test(email)) {
+      res.status(400).json({ error: 'Please enter a valid email address.' });
+      return;
+    }
+    if (password.length < 6) {
+      res.status(400).json({ error: 'Password must be at least 6 characters.' });
       return;
     }
 
@@ -551,19 +561,23 @@ async function startServer() {
     const body = req.body as Record<string, unknown>;
     const role = body.role === 'company' ? 'company' : body.role === 'student' ? 'student' : null;
     if (!role) {
-      res.status(400).json({ error: 'Role must be student or company.' });
+      res.status(400).json({ error: 'Account type must be Student or Company.' });
       return;
     }
 
     const email = String(body.email ?? '').trim().toLowerCase().slice(0, 120);
     const password = String(body.password ?? '');
-    if (!email.includes('@') || password.length < 6) {
-      res.status(400).json({ error: 'Valid email and password (min 6 chars) are required.' });
+    if (!EMAIL_REGEX.test(email)) {
+      res.status(400).json({ error: 'Please enter a valid email address.' });
+      return;
+    }
+    if (password.length < 6) {
+      res.status(400).json({ error: 'Password must be at least 6 characters.' });
       return;
     }
 
     if (db.prepare('SELECT id FROM users WHERE email = ?').get(email)) {
-      res.status(409).json({ error: 'Email already registered. Please sign in.' });
+      res.status(409).json({ error: 'An account with this email is already registered. Please sign in.' });
       return;
     }
 
@@ -572,12 +586,29 @@ async function startServer() {
     const passwordHash = hashPassword(password);
 
     if (role === 'student') {
-      const displayName = String(body.displayName ?? '').trim().slice(0, 100);
+      const firstName = String(body.firstName ?? '').trim().slice(0, 50);
+      const secondName = String(body.secondName ?? '').trim().slice(0, 50);
+      const displayName =
+        firstName || secondName
+          ? `${firstName} ${secondName}`.trim().slice(0, 100)
+          : String(body.displayName ?? '').trim().slice(0, 100);
       const studentPin = String(body.studentPin ?? '').trim().toUpperCase().slice(0, 24);
       const campus = String(body.campus ?? 'Harare Regional Campus').trim().slice(0, 80);
 
-      if (displayName.length < 2 || studentPin.length < 4) {
-        res.status(400).json({ error: 'Full name and ZOU Student PIN are required.' });
+      if ((firstName || secondName) && (firstName.length < 2 || secondName.length < 2)) {
+        res.status(400).json({ error: 'First name and second name must each be at least 2 characters.' });
+        return;
+      }
+      if (displayName.length < 2) {
+        res.status(400).json({ error: 'First name and second name are required.' });
+        return;
+      }
+      if (studentPin.length < 3) {
+        res.status(400).json({ error: 'Student PIN must be at least 3 characters.' });
+        return;
+      }
+      if (!campus) {
+        res.status(400).json({ error: 'Please select a campus.' });
         return;
       }
 
@@ -593,15 +624,20 @@ async function startServer() {
       const city = String(body.city ?? '').trim().slice(0, 60);
       const description = String(body.companyDescription ?? '').trim().slice(0, 1000);
 
-      if (
-        companyName.length < 2 ||
-        registrationNumber.length < 3 ||
-        city.length < 2 ||
-        description.length < 10
-      ) {
-        res.status(400).json({
-          error: 'Company name, registration number, city, and description (min 10 chars) are required.',
-        });
+      if (companyName.length < 2) {
+        res.status(400).json({ error: 'Company name must be at least 2 characters.' });
+        return;
+      }
+      if (registrationNumber.length < 2) {
+        res.status(400).json({ error: 'Company registration number must be at least 2 characters.' });
+        return;
+      }
+      if (city.length < 2) {
+        res.status(400).json({ error: 'City must be at least 2 characters.' });
+        return;
+      }
+      if (description.length < 3) {
+        res.status(400).json({ error: 'Company description must be at least 3 characters.' });
         return;
       }
 
@@ -638,16 +674,28 @@ async function startServer() {
     const email = String(body.email ?? '').trim().toLowerCase();
     const password = String(body.password ?? '');
 
-    if (!email || !password) {
-      res.status(400).json({ error: 'Email and password are required.' });
+    if (!EMAIL_REGEX.test(email)) {
+      res.status(400).json({ error: 'Please enter a valid email address.' });
+      return;
+    }
+    if (!password) {
+      res.status(400).json({ error: 'Please enter your password.' });
       return;
     }
 
     const userRow = db
       .prepare('SELECT * FROM users WHERE email = ?')
       .get(email) as unknown as DbUserRow | undefined;
-    if (!userRow || !verifyPassword(password, userRow.password_hash)) {
-      res.status(401).json({ error: 'Incorrect email or password.' });
+    if (!userRow) {
+      res.status(401).json({
+        error: 'No account found with this email address. Please register first.',
+      });
+      return;
+    }
+    if (!verifyPassword(password, userRow.password_hash)) {
+      res.status(401).json({
+        error: 'Incorrect password. Please check your password and try again.',
+      });
       return;
     }
 
@@ -1034,6 +1082,15 @@ async function startServer() {
       res.json({ ok: true });
     }
   );
+
+  app.use('/api', (_req: Request, res: Response) => {
+    res.status(404).json({ error: 'Requested service endpoint was not found.' });
+  });
+
+  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+    console.error(err);
+    res.status(500).json({ error: 'An unexpected server error occurred.' });
+  });
 
   if (process.env.NODE_ENV !== 'production') {
     const { createServer } = await import('vite');

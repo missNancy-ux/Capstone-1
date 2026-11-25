@@ -10,6 +10,8 @@ interface RegisterPageProps {
 
 type RegisterRole = 'student' | 'company';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function RegisterPage({ onNavigateLogin }: RegisterPageProps) {
   const { setSession } = useAuth();
   const [role, setRole] = useState<RegisterRole>('student');
@@ -18,7 +20,8 @@ export function RegisterPage({ onNavigateLogin }: RegisterPageProps) {
   const [password, setPassword] = useState('');
 
   // Student fields
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [secondName, setSecondName] = useState('');
   const [studentPin, setStudentPin] = useState('');
   const [campus, setCampus] = useState<string>(ZOU_CAMPUSES[0]);
 
@@ -34,6 +37,48 @@ export function RegisterPage({ onNavigateLogin }: RegisterPageProps) {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+
+    if (role === 'student') {
+      if (firstName.trim().length < 2) {
+        setErrorMsg('First name must be at least 2 characters.');
+        return;
+      }
+      if (secondName.trim().length < 2) {
+        setErrorMsg('Second name must be at least 2 characters.');
+        return;
+      }
+      if (studentPin.trim().length < 3) {
+        setErrorMsg('Student PIN must be at least 3 characters.');
+        return;
+      }
+    } else {
+      if (companyName.trim().length < 2) {
+        setErrorMsg('Company name must be at least 2 characters.');
+        return;
+      }
+      if (registrationNumber.trim().length < 2) {
+        setErrorMsg('Company registration number must be at least 2 characters.');
+        return;
+      }
+      if (city.trim().length < 2) {
+        setErrorMsg('Please enter the company city.');
+        return;
+      }
+      if (companyDescription.trim().length < 3) {
+        setErrorMsg('Company description must be at least 3 characters.');
+        return;
+      }
+    }
+
+    if (!EMAIL_REGEX.test(email.trim())) {
+      setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+    if (password.length < 6) {
+      setErrorMsg('Password must be at least 6 characters.');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -43,7 +88,9 @@ export function RegisterPage({ onNavigateLogin }: RegisterPageProps) {
               role: 'student',
               email: email.trim(),
               password,
-              displayName: fullName.trim(),
+              firstName: firstName.trim(),
+              secondName: secondName.trim(),
+              displayName: `${firstName.trim()} ${secondName.trim()}`,
               studentPin: studentPin.trim().toUpperCase(),
               campus,
             }
@@ -129,22 +176,44 @@ export function RegisterPage({ onNavigateLogin }: RegisterPageProps) {
           </div>
         )}
 
-        <form onSubmit={handleRegister} className="space-y-4">
+        <form onSubmit={handleRegister} noValidate className="space-y-4">
           {role === 'student' ? (
             <>
-              <div>
-                <label htmlFor="reg-name" className="block text-sm font-medium text-[#0f294a] mb-1">
-                  Full Name
-                </label>
-                <input
-                  id="reg-name"
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Enter your full name"
-                  className={inputClass}
-                />
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="reg-first-name" className="block text-sm font-medium text-[#0f294a] mb-1">
+                    First Name
+                  </label>
+                  <input
+                    id="reg-first-name"
+                    type="text"
+                    required
+                    value={firstName}
+                    onChange={(e) => {
+                      setFirstName(e.target.value);
+                      if (errorMsg) setErrorMsg(null);
+                    }}
+                    placeholder="Enter first name"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="reg-second-name" className="block text-sm font-medium text-[#0f294a] mb-1">
+                    Second Name
+                  </label>
+                  <input
+                    id="reg-second-name"
+                    type="text"
+                    required
+                    value={secondName}
+                    onChange={(e) => {
+                      setSecondName(e.target.value);
+                      if (errorMsg) setErrorMsg(null);
+                    }}
+                    placeholder="Enter second name"
+                    className={inputClass}
+                  />
+                </div>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4">
@@ -157,7 +226,10 @@ export function RegisterPage({ onNavigateLogin }: RegisterPageProps) {
                     type="text"
                     required
                     value={studentPin}
-                    onChange={(e) => setStudentPin(e.target.value)}
+                    onChange={(e) => {
+                      setStudentPin(e.target.value);
+                      if (errorMsg) setErrorMsg(null);
+                    }}
                     placeholder="Enter Student PIN"
                     className={`${inputClass} font-mono uppercase`}
                   />
@@ -193,7 +265,10 @@ export function RegisterPage({ onNavigateLogin }: RegisterPageProps) {
                     type="text"
                     required
                     value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
+                    onChange={(e) => {
+                      setCompanyName(e.target.value);
+                      if (errorMsg) setErrorMsg(null);
+                    }}
                     className={inputClass}
                   />
                 </div>
@@ -206,7 +281,10 @@ export function RegisterPage({ onNavigateLogin }: RegisterPageProps) {
                     type="text"
                     required
                     value={registrationNumber}
-                    onChange={(e) => setRegistrationNumber(e.target.value)}
+                    onChange={(e) => {
+                      setRegistrationNumber(e.target.value);
+                      if (errorMsg) setErrorMsg(null);
+                    }}
                     placeholder="e.g. ZW-CR-2022-1450"
                     className={`${inputClass} font-mono`}
                   />
@@ -222,7 +300,10 @@ export function RegisterPage({ onNavigateLogin }: RegisterPageProps) {
                   type="text"
                   required
                   value={city}
-                  onChange={(e) => setCity(e.target.value)}
+                  onChange={(e) => {
+                    setCity(e.target.value);
+                    if (errorMsg) setErrorMsg(null);
+                  }}
                   className={inputClass}
                 />
               </div>
@@ -235,10 +316,12 @@ export function RegisterPage({ onNavigateLogin }: RegisterPageProps) {
                   id="reg-desc"
                   rows={2}
                   required
-                  minLength={10}
                   value={companyDescription}
-                  onChange={(e) => setCompanyDescription(e.target.value)}
-                  placeholder="Brief overview of your software engineering activities..."
+                  onChange={(e) => {
+                    setCompanyDescription(e.target.value);
+                    if (errorMsg) setErrorMsg(null);
+                  }}
+                  placeholder="Brief overview of your company..."
                   className={inputClass}
                 />
               </div>
@@ -255,7 +338,10 @@ export function RegisterPage({ onNavigateLogin }: RegisterPageProps) {
                 type="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (errorMsg) setErrorMsg(null);
+                }}
                 placeholder={role === 'student' ? 'student@example.com' : 'hr@company.co.zw'}
                 className={inputClass}
               />
@@ -268,9 +354,11 @@ export function RegisterPage({ onNavigateLogin }: RegisterPageProps) {
                 id="reg-pass"
                 type="password"
                 required
-                minLength={6}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (errorMsg) setErrorMsg(null);
+                }}
                 className={inputClass}
               />
             </div>

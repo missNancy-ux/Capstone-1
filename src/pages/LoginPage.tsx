@@ -8,6 +8,8 @@ interface LoginPageProps {
   onNavigateRegister: () => void;
 }
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function LoginPage({ onNavigateRegister }: LoginPageProps) {
   const { setSession } = useAuth();
   const [email, setEmail] = useState('');
@@ -41,11 +43,22 @@ export function LoginPage({ onNavigateRegister }: LoginPageProps) {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+
+    const trimmedEmail = email.trim();
+    if (!EMAIL_REGEX.test(trimmedEmail)) {
+      setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+    if (!password) {
+      setErrorMsg('Please enter your password.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await apiRequest<{ token: string; user: UserProfile }>('/api/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: trimmedEmail, password }),
       });
       if (panelMode === 'admin' && res.user.role !== 'admin') {
         setErrorMsg('This account does not have Admin access.');
@@ -62,6 +75,24 @@ export function LoginPage({ onNavigateRegister }: LoginPageProps) {
   const handleAdminSetup = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+
+    if (adminName.trim().length < 2) {
+      setErrorMsg('Admin name must be at least 2 characters.');
+      return;
+    }
+    if (!EMAIL_REGEX.test(adminEmail.trim())) {
+      setErrorMsg('Please enter a valid admin email address.');
+      return;
+    }
+    if (adminPassword.length < 6) {
+      setErrorMsg('Password must be at least 6 characters.');
+      return;
+    }
+    if (adminStatus?.requiresEnvPasscode && !adminPasscode.trim()) {
+      setErrorMsg('Please enter the Admin Passcode.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const res = await apiRequest<{ token: string; user: UserProfile }>(
@@ -69,8 +100,8 @@ export function LoginPage({ onNavigateRegister }: LoginPageProps) {
         {
           method: 'POST',
           body: JSON.stringify({
-            displayName: adminName,
-            email: adminEmail,
+            displayName: adminName.trim(),
+            email: adminEmail.trim(),
             password: adminPassword,
             passcode: adminPasscode,
           }),
@@ -155,7 +186,7 @@ export function LoginPage({ onNavigateRegister }: LoginPageProps) {
         )}
 
         {panelMode === 'admin' && adminAction === 'setup' && canCreateAdmin ? (
-          <form onSubmit={handleAdminSetup} className="space-y-4">
+          <form onSubmit={handleAdminSetup} noValidate className="space-y-4">
             <div>
               <label htmlFor="adm-name" className="block text-sm font-medium text-[#0f294a] mb-1">
                 Admin Name
@@ -234,7 +265,7 @@ export function LoginPage({ onNavigateRegister }: LoginPageProps) {
             </div>
           </form>
         ) : (
-          <form onSubmit={handleSignIn} className="space-y-4">
+          <form onSubmit={handleSignIn} noValidate className="space-y-4">
             <div>
               <label htmlFor="login-email" className="block text-sm font-medium text-[#0f294a] mb-1">
                 Email

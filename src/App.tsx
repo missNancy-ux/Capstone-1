@@ -29,6 +29,9 @@ function MainRouter() {
   }, []);
 
   useEffect(() => {
+    if (user) {
+      setAuthRoute('login');
+    }
     if (user?.role === 'company') {
       setActiveTab('company');
     } else if (user?.role === 'admin') {
@@ -36,7 +39,7 @@ function MainRouter() {
     } else if (user?.role === 'student') {
       setActiveTab('opportunities');
     }
-  }, [user?.role]);
+  }, [user]);
 
   const navigateAuth = (target: AuthRoute) => {
     setAuthRoute(target);
