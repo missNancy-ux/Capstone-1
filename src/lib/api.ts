@@ -1,4 +1,7 @@
+import { handleLocalFallbackRequest } from './localFallbackBackend';
+
 let inMemoryToken: string | null = null;
+let useLocalFallback = false;
 
 export function setAuthToken(token: string | null): void {
   inMemoryToken = token;
@@ -12,6 +15,11 @@ export async function apiRequest<T>(
   url: string,
   options: RequestInit = {}
 ): Promise<T> {
+  if (useLocalFallback || (inMemoryToken && inMemoryToken.startsWith('local.'))) {
+    useLocalFallback = true;
+    return handleLocalFallbackRequest<T>(url, options, inMemoryToken);
+  }
+
   const headers = new Headers(options.headers);
   if (!headers.has('Content-Type') && options.body) {
     headers.set('Content-Type', 'application/json');
@@ -27,7 +35,8 @@ export async function apiRequest<T>(
       headers,
     });
   } catch {
-    throw new Error('Unable to connect to the server. Please check your connection and try again.');
+    useLocalFallback = true;
+    return handleLocalFallbackRequest<T>(url, options, inMemoryToken);
   }
 
   const rawText = await response.text().catch(() => '');
@@ -44,13 +53,19 @@ export async function apiRequest<T>(
     if (data?.error) {
       throw new Error(data.error);
     }
-    if (response.status === 404) {
-      throw new Error('Authentication service unavailable. Please refresh the page or ensure the app server is running.');
+    if (response.status === 404 || response.status === 405) {
+      useLocalFallback = true;
+      return handleLocalFallbackRequest<T>(url, options, inMemoryToken);
     }
     if (response.status === 401) {
       throw new Error('Invalid credentials or expired session. Please sign in again.');
     }
     throw new Error(`Unable to complete request (${response.status}). Please try again.`);
+  }
+
+  if (!data && rawText.trim().startsWith('<')) {
+    useLocalFallback = true;
+    return handleLocalFallbackRequest<T>(url, options, inMemoryToken);
   }
 
   return (data ?? {}) as T;
